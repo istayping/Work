@@ -1,25 +1,25 @@
 do
 
 -- Returns a table with `name` and `msgs`
-local function get_msgs_user_chat(user_id, chat_id)
+local function get_msgs_user_channel(user_id, channel_id)
   local user_info = {}
   local uhash = 'user:'..user_id
   local user = redis:hgetall(uhash)
-  local um_hash = 'msgs:'..user_id..':'..chat_id
+  local um_hash = 'msgs:'..user_id..':'..channel_id
   user_info.msgs = tonumber(redis:get(um_hash) or 0)
   user_info.name = user_print_name(user)..' ['..user_id..']'
   return user_info
 end
 
-local function chat_stats(chat_id)
-  -- Users on chat
-  local hash = 'chat:'..chat_id..':users'
+local function channel_stats(channel_id)
+  -- Users on channel
+  local hash = 'channel:'..channel_id..':users'
   local users = redis:smembers(hash)
   local users_info = {}
   -- Get user info
   for i = 1, #users do
     local user_id = users[i]
-    local user_info = get_msgs_user_chat(user_id, chat_id)
+    local user_info = get_msgs_user_channel(user_id, channel_id)
     table.insert(users_info, user_info)
   end
   -- Sort users by msgs number
@@ -28,7 +28,7 @@ local function chat_stats(chat_id)
         return a.msgs > b.msgs
       end
     end)
-  local text = 'users in this chat \n'
+  local text = 'users in this channel \n'
   for k,user in pairs(users_info) do
     text = text..user.name..' = '..user.msgs..'\n'
   end
@@ -36,20 +36,20 @@ local function chat_stats(chat_id)
   file:write(text)
   file:flush()
   file:close() 
-  send_document("chat#id"..chat_id,"./groups/lists/"..chat_id.."stats.txt", ok_cb, false)
+  send_document("channel#id"..chat_id,"./groups/lists/"..channel_id.."stats.txt", ok_cb, false)
   return --text
 end
 
-local function chat_stats2(chat_id)
+local function channel_stats2(channel_id)
   -- Users on chat
-  local hash = 'chat:'..chat_id..':users'
+  local hash = 'channel:'..channel_id..':users'
   local users = redis:smembers(hash)
   local users_info = {}
 
   -- Get user info
   for i = 1, #users do
     local user_id = users[i]
-    local user_info = get_msgs_user_chat(user_id, chat_id)
+    local user_info = get_msgs_user_channel(user_id, channel_id)
     table.insert(users_info, user_info)
   end
 
@@ -60,7 +60,7 @@ local function chat_stats2(chat_id)
       end
     end)
 
-  local text = 'users in this chat \n'
+  local text = 'users in this channel \n'
   for k,user in pairs(users_info) do
     text = text..user.name..' = '..user.msgs..'\n'
   end
@@ -85,7 +85,7 @@ local function bot_stats()
   local r = redis:eval(redis_scan, 1, hash)
   local text = 'Users: '..r
 
-  hash = 'chat:*:users'
+  hash = 'channel:*:users'
   r = redis:eval(redis_scan, 1, hash)
   text = text..'\nGroups: '..r
   return text
@@ -101,10 +101,10 @@ local function run(msg, matches)
     if not is_momod(msg) then
       return "For mods only !"
     end
-    local chat_id = msg.to.id
+    local channel_id = msg.to.id
     local name = user_print_name(msg.from)
     savelog(msg.to.id, name.." ["..msg.from.id.."] requested group stats ")
-    return chat_stats2(chat_id)
+    return channel_stats2(channel_id)
   end
   if matches[1]:lower() == "stats" then
     if not matches[2] then
@@ -112,10 +112,10 @@ local function run(msg, matches)
         return "For mods only !"
       end
       if msg.to.type == 'chat' then
-        local chat_id = msg.to.id
+        local channel_id = msg.to.id
         local name = user_print_name(msg.from)
         savelog(msg.to.id, name.." ["..msg.from.id.."] requested group stats ")
-        return chat_stats(chat_id)
+        return channel_stats(channel_id)
       else
         return
       end
